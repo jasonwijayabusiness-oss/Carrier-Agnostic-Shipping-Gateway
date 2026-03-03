@@ -95,3 +95,44 @@ python poller.py
 Terminal 3 (Dashboard):
 python -m streamlit run dashboard.py
 ```Streamlit typically: http://localhost:8501 ```
+
+Core demo walkthrough
+
+Step A: Seed orders
+Use the dashboard button to seed orders
+
+Step B: Generate quotes (rate shopping)
+Pick an order (example ORDER-0001) and generate quotes.
+This writes to the SQL table rate_quotes:
+
+- quoted_cost
+- estimated_days
+- eligible flag and ineligible_reason
+- lane_type
+
+Step C: Create a label
+Create a label for the same order.
+The system:
+- chooses the cheapest eligible carrier that meets promised_days, if possible
+otherwise chooses best available and flags PROMISE_RISK in selection_reason
+- The result is stored in shipments and the attempt is logged in label_attempts.
+
+Step D: Trigger Sendle shutdown (simulate outage)
+Trigger Sendle shutdown in the dashboard.
+This makes the Sendle mock label API return 503.
+
+Step E: Observe kill switch and failover
+Attempt to create a label for an order likely to route to Sendle.
+
+On Sendle failure, the system:
+- logs the failed attempt in label_attempts
+- disables Sendle via provider_status (kill switch)
+- opens an incident in incidents
+- continues routing to alternative carriers
+
+Step F: Recover (optional)
+Recover Sendle mock: vendor endpoint becomes available again
+Enable Sendle provider: platform re-allows routing traffic to Sendle
+Run release gate: SQL checks decide PASS/FAIL before resuming rollout
+
+
